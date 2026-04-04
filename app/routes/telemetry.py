@@ -33,7 +33,7 @@ def get_telemetry():
         "available_tickets": available_tickets,
         "cpu_percent": cpu_percent,
         "ram_percent": ram_info.percent,
-        # Mocking cluster topology to display in dashboard
-        "be_instances": 4, 
+        # Displaying genuine 1:1 topology mapping for our local cluster
+        "be_instances": 1, 
         "db_instances": 1
     }), 200
