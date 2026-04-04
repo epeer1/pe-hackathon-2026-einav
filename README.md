@@ -98,6 +98,20 @@ Spins up 150 concurrent users fighting for 100 tickets. Verifies exactly 100 sel
 
 ---
 
+## Dashboard
+
+The React frontend at http://localhost:5173 provides a real-time operations dashboard:
+
+- **Live telemetry** — database status, CPU/RAM usage, active Gunicorn workers
+- **Traffic chart** — rolling 60-second view of reservation activity
+- **Launch flash sales** — create events with configurable ticket counts directly from the UI
+- **Simulate load** — trigger concurrent user bursts and watch tickets drain in real time
+- **Node health indicators** — visual status of API and database containers
+
+The dashboard polls `/api/telemetry` every 800ms and reflects the system state as it changes — including during chaos tests (kill a container and watch the status flip to offline, then recover).
+
+---
+
 ## Project Structure
 
 ```
