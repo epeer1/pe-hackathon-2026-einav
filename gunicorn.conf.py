@@ -3,7 +3,7 @@ import signal
 import threading
 import time
 
-bind = "0.0.0.0:5000"
+bind = "0.0.0.0:5050"
 workers = 1  # Start lean, autoscaler will add more
 worker_class = "sync"
 timeout = 30

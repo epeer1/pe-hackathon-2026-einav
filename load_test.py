@@ -4,7 +4,7 @@ import uuid
 import argparse
 import time
 
-API_BASE = "http://127.0.0.1:5000"
+API_BASE = "http://127.0.0.1:5050"
 
 def create_event(tickets):
     res = requests.post(
@@ -14,11 +14,17 @@ def create_event(tickets):
     return res.json()["id"]
 
 def reserve_ticket(event_id, user_id):
-    res = requests.post(f"{API_BASE}/reserve", json={
-        "event_id": event_id,
-        "user_email": f"user{user_id}_{uuid.uuid4().hex[:6]}@test.com"
-    })
-    return res.status_code
+    for attempt in range(3):
+        try:
+            res = requests.post(f"{API_BASE}/reserve", json={
+                "event_id": event_id,
+                "user_email": f"user{user_id}_{uuid.uuid4().hex[:6]}@test.com"
+            }, timeout=10)
+            return res.status_code
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt < 2:
+                time.sleep(1)
+    return 503  # treat connection failures as service unavailable
 
 def run_load_test(tickets=100, users=150, workers=100):
     try:
@@ -32,6 +38,7 @@ def run_load_test(tickets=100, users=150, workers=100):
     
     successes = 0
     failures = 0
+    errors = 0
     start = time.perf_counter()
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
@@ -40,6 +47,8 @@ def run_load_test(tickets=100, users=150, workers=100):
             status = future.result()
             if status == 201:
                 successes += 1
+            elif status == 503:
+                errors += 1
             else:
                 failures += 1
 
@@ -51,6 +60,8 @@ def run_load_test(tickets=100, users=150, workers=100):
     print(f"Expected limit: {tickets} tickets")
     print(f"Total sold:     {successes}")
     print(f"Total blocked:  {failures}")
+    if errors:
+        print(f"Total errors:   {errors} (connection failures)")
     if successes > tickets:
         print("💥 FAIL: OVERSELLING DETECTED! Race condition exploited.")
     elif successes == tickets:

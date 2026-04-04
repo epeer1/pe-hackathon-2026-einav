@@ -305,3 +305,44 @@ def test_500_does_not_leak_details(client):
     assert "details" not in (res.json or {})
     assert "traceback" not in str(res.data).lower()
     assert "Traceback" not in str(res.data)
+
+# ─── Crash Recovery & Data Persistence ─────────────────────────
+
+def test_crash_recovery_event_survives(client):
+    """Create event, reserve tickets, simulate crash (app restart), verify data intact."""
+    # 1. Create event
+    name = f"CrashTest_{uuid.uuid4()}"
+    res = client.post("/admin/event", json={"name": name, "total_tickets": 10})
+    assert res.status_code == 201
+    eid = res.json["id"]
+
+    # 2. Reserve 3 tickets
+    for i in range(3):
+        r = client.post("/reserve", json={"event_id": eid, "user_email": f"pre_crash_{i}@test.com"})
+        assert r.status_code == 201
+
+    # 3. Simulate crash: create a brand-new app instance (like a container restart)
+    from app import create_app as fresh_app
+    app2 = fresh_app()
+    app2.config["TESTING"] = True
+    client2 = app2.test_client()
+
+    # 4. Verify health comes back
+    res = client2.get("/health")
+    assert res.status_code == 200
+
+    # 5. Verify event still exists with correct ticket count (7 remaining)
+    res = client2.post("/reserve", json={"event_id": eid, "user_email": "post_crash@test.com"})
+    assert res.status_code == 201
+    assert res.json["reservation"]["event"]["available_tickets"] == 6
+
+    # 6. Verify duplicate reservation still enforced after restart
+    res = client2.post("/reserve", json={"event_id": eid, "user_email": "pre_crash_0@test.com"})
+    assert res.status_code == 409
+
+    # 7. Verify we can still sell remaining tickets to exhaustion
+    for i in range(6):
+        client2.post("/reserve", json={"event_id": eid, "user_email": f"post_crash_{i}@test.com"})
+    res = client2.post("/reserve", json={"event_id": eid, "user_email": "too_late@test.com"})
+    assert res.status_code == 400
+    assert "Sold out" in res.json["error"]

@@ -25,9 +25,9 @@ docker compose up --build
 
 | Service   | URL                          |
 |-----------|------------------------------|
-| API       | http://localhost:5000         |
+| API       | http://localhost:5050         |
 | Dashboard | http://localhost:5173         |
-| Health    | http://localhost:5000/health  |
+| Health    | http://localhost:5050/health  |
 
 All three containers (API, DB, Frontend) start automatically. No manual setup needed.
 
@@ -90,11 +90,12 @@ All errors return JSON. No HTML stack traces ever reach the client.
 
 ### Auto-Recovery (Chaos Mode)
 
-All Docker containers run with `restart: unless-stopped`.
+All Docker containers run with `restart: always`. PostgreSQL data is stored on a named Docker volume (`pgdata`).
 
-- **Kill the API** → Docker respawns Gunicorn in seconds. Mid-flight transactions roll back cleanly via PostgreSQL.
-- **Kill the database** → PostgreSQL restarts, Peewee reconnects automatically. API returns `500` JSON during the ~3s gap.
+- **Kill the API** → Docker respawns Gunicorn in ~1 second. Mid-flight transactions roll back cleanly via PostgreSQL.
+- **Kill the database** → PostgreSQL restarts with all data intact (volume-backed). API returns `500` JSON during the gap, then reconnects automatically.
 - **Kill the frontend** → Restarts independently; API continues serving.
+- **Crash recovery test** — pytest verifies events and reservations survive a full app restart.
 
 Full failure mode documentation: [docs/failure_manual.md](docs/failure_manual.md)
 
@@ -122,17 +123,17 @@ Gunicorn workers scale from 1 to 6 based on real-time requests per second:
 
 ```bash
 # Create event
-curl -X POST http://localhost:5000/admin/event \
+curl -X POST http://localhost:5050/admin/event \
   -H "Content-Type: application/json" \
   -d '{"name": "FlashSale", "total_tickets": 100}'
 
 # Reserve ticket
-curl -X POST http://localhost:5000/reserve \
+curl -X POST http://localhost:5050/reserve \
   -H "Content-Type: application/json" \
   -d '{"event_id": 1, "user_email": "user@example.com"}'
 
 # Deactivate event
-curl -X POST http://localhost:5000/admin/event/1/deactivate
+curl -X POST http://localhost:5050/admin/event/1/deactivate
 ```
 
 ---
@@ -144,7 +145,7 @@ curl -X POST http://localhost:5000/admin/event/1/deactivate
 docker compose exec api uv run python -m pytest tests/ -v --cov=app --cov-report=term-missing
 ```
 
-**37 tests · 92% coverage** — health check, full reservation flow, sold out, duplicate user, inactive event, deactivation of nonexistent events, bad input types (boolean, float, string, whitespace, null), HTTP method enforcement, data consistency verification, error log integration, and no-detail-leak validation.
+**38 tests · 92% coverage** — health check, full reservation flow, sold out, duplicate user, inactive event, deactivation of nonexistent events, bad input types (boolean, float, string, whitespace, null), HTTP method enforcement, data consistency verification, error log integration, no-detail-leak validation, and crash recovery with data persistence.
 
 ### Load Test
 
@@ -152,7 +153,7 @@ docker compose exec api uv run python -m pytest tests/ -v --cov=app --cov-report
 python load_test.py -t 5000 -u 8000 -w 200
 ```
 
-Spins up 200 threads sending 8000 reservation requests for 5000 tickets. Verifies exactly 5000 sell, 3000 are rejected, zero oversold.
+Spins up 200 threads sending 8000 reservation requests for 5000 tickets. Verifies exactly 5000 sell, 3000 are rejected, zero oversold. Built-in retry logic survives mid-test container crashes.
 
 ---
 
@@ -192,7 +193,7 @@ If tests fail or coverage drops below 70%, the pipeline blocks the commit.
 │       ├── reservations.py      # /admin/event, /reserve, /deactivate
 │       └── telemetry.py         # /api/telemetry, shared RPS counter
 ├── frontend/                    # React + Vite dashboard
-├── tests/test_api.py            # 37 tests, 92% coverage
+├── tests/test_api.py            # 38 tests, 92% coverage
 ├── docs/
 │   ├── quest_requirements.md    # Bronze/Silver/Gold checklist
 │   └── failure_manual.md        # Failure mode documentation
@@ -209,7 +210,7 @@ If tests fail or coverage drops below 70%, the pipeline blocks the commit.
 
 | Tier | Requirement | Status |
 |------|-------------|--------|
-| 🥉 Bronze | Unit tests with pytest | ✅ 37 tests passing |
+| 🥉 Bronze | Unit tests with pytest | ✅ 38 tests passing |
 | 🥉 Bronze | CI via GitHub Actions | ✅ Runs on every push |
 | 🥉 Bronze | `/health` endpoint | ✅ Returns `{"status": "ok"}` |
 | 🥈 Silver | ≥50% code coverage | ✅ 92% |
@@ -218,5 +219,5 @@ If tests fail or coverage drops below 70%, the pipeline blocks the commit.
 | 🥈 Silver | Error handling docs | ✅ [failure_manual.md](docs/failure_manual.md) |
 | 🥇 Gold | ≥70% code coverage | ✅ 92% |
 | 🥇 Gold | Graceful failure (JSON errors) | ✅ 400/404/405/409/413/429/500 |
-| 🥇 Gold | Chaos mode (auto-restart) | ✅ `restart: unless-stopped` |
+| 🥇 Gold | Chaos mode (auto-restart) | ✅ `restart: always` + persistent volume |
 | 🥇 Gold | Failure manual | ✅ [failure_manual.md](docs/failure_manual.md) |

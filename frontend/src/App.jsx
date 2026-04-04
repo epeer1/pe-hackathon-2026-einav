@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Activity, Server, Database, Ticket, Cpu, MemoryStick, Zap, Plus, AlertTriangle } from 'lucide-react';
 
-const API = 'http://127.0.0.1:5000';
+const API = 'http://127.0.0.1:5050';
 const HISTORY_LENGTH = 200;
 
 export default function App() {

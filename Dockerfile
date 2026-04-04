@@ -13,7 +13,7 @@ RUN uv sync --no-dev
 COPY . .
 
 # Expose the Gunicorn port
-EXPOSE 5000
+EXPOSE 5050
 
 # Boot up the robust Gunicorn server natively connected to our models
 CMD ["uv", "run", "gunicorn", "-c", "gunicorn.conf.py", "run:app"]
