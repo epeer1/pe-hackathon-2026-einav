@@ -2,7 +2,7 @@ import concurrent.futures
 import requests
 import uuid
 
-API_BASE = "http://127.0.0.1:5001"
+API_BASE = "http://127.0.0.1:5000"
 
 def create_event():
     res = requests.post(

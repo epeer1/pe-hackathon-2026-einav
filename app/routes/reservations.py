@@ -96,3 +96,15 @@ def reserve():
     except Event.DoesNotExist:
         return jsonify({"error": "Event not found"}), 404
 
+
+@reservations_bp.route("/admin/event/<int:event_id>/deactivate", methods=["POST"])
+def deactivate_event(event_id):
+    try:
+        event = Event.get_by_id(event_id)
+    except Event.DoesNotExist:
+        return jsonify({"error": "Event not found"}), 404
+
+    event.active = False
+    event.save()
+    return jsonify({"message": "Event deactivated", "event": model_to_dict(event)}), 200
+

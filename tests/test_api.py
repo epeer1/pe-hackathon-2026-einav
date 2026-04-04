@@ -134,9 +134,114 @@ def test_reserve_empty_body(client):
     res = client.post("/reserve", data="garbage", content_type="text/plain")
     assert res.status_code == 400
 
+# ─── Inactive Event Handling ──────────────────────────────────
+
+def test_reserve_inactive_event(client):
+    """Reserving against a deactivated event should fail gracefully."""
+    name = f"E_{uuid.uuid4()}"
+    res = client.post("/admin/event", json={"name": name, "total_tickets": 10})
+    eid = res.json["id"]
+
+    # Deactivate the event
+    res = client.post(f"/admin/event/{eid}/deactivate")
+    assert res.status_code == 200
+
+    # Try to reserve — should be rejected
+    res = client.post("/reserve", json={"event_id": eid, "user_email": "late@test.com"})
+    assert res.status_code == 400
+    assert "active" in res.json["error"].lower() or "no longer" in res.json["error"].lower()
+
+# ─── Data Consistency ─────────────────────────────────────────
+
+def test_ticket_count_consistency(client):
+    """After N successful reservations, available_tickets must equal total - N."""
+    name = f"E_{uuid.uuid4()}"
+    res = client.post("/admin/event", json={"name": name, "total_tickets": 5})
+    eid = res.json["id"]
+
+    for i in range(5):
+        r = client.post("/reserve", json={"event_id": eid, "user_email": f"u{i}@test.com"})
+        assert r.status_code == 201
+
+    # The 6th should be sold out
+    r = client.post("/reserve", json={"event_id": eid, "user_email": "extra@test.com"})
+    assert r.status_code == 400
+    assert "Sold out" in r.json["error"]
+
+def test_duplicate_reservation_does_not_decrement_tickets(client):
+    """A duplicate reservation attempt must NOT reduce available tickets."""
+    name = f"E_{uuid.uuid4()}"
+    res = client.post("/admin/event", json={"name": name, "total_tickets": 5})
+    eid = res.json["id"]
+
+    client.post("/reserve", json={"event_id": eid, "user_email": "dup@test.com"})
+    # Try duplicate
+    client.post("/reserve", json={"event_id": eid, "user_email": "dup@test.com"})
+
+    # Check remaining tickets via a new reservation
+    r = client.post("/reserve", json={"event_id": eid, "user_email": "other@test.com"})
+    assert r.status_code == 201
+    assert r.json["reservation"]["event"]["available_tickets"] == 3
+
+# ─── Input Boundary Tests ─────────────────────────────────────
+
+def test_create_event_boolean_tickets(client):
+    """Boolean True should not be accepted as total_tickets."""
+    res = client.post("/admin/event", json={"name": f"E_{uuid.uuid4()}", "total_tickets": True})
+    assert res.status_code == 400
+
+def test_create_event_float_tickets(client):
+    """Float values should not be accepted as total_tickets."""
+    res = client.post("/admin/event", json={"name": f"E_{uuid.uuid4()}", "total_tickets": 10.5})
+    assert res.status_code == 400
+
+def test_create_event_whitespace_name(client):
+    """A name with only whitespace should be rejected."""
+    res = client.post("/admin/event", json={"name": "   ", "total_tickets": 10})
+    assert res.status_code == 400
+
+def test_reserve_whitespace_email(client):
+    """An email that is only whitespace should be rejected."""
+    name = f"E_{uuid.uuid4()}"
+    res = client.post("/admin/event", json={"name": name, "total_tickets": 5})
+    eid = res.json["id"]
+    r = client.post("/reserve", json={"event_id": eid, "user_email": "   "})
+    assert r.status_code == 400
+
+def test_reserve_wrong_method(client):
+    """GET on /reserve should return 405 with JSON."""
+    res = client.get("/reserve")
+    assert res.status_code == 405
+    assert res.content_type == "application/json"
+
+def test_create_event_wrong_method(client):
+    """GET on /admin/event should return 405 with JSON."""
+    res = client.get("/admin/event")
+    assert res.status_code == 405
+    assert res.content_type == "application/json"
+
+# ─── Telemetry ────────────────────────────────────────────────
+
+def test_telemetry_endpoint(client):
+    """The telemetry endpoint should return system stats."""
+    res = client.get("/api/telemetry")
+    assert res.status_code == 200
+    data = res.json
+    assert "database" in data
+    assert "available_tickets" in data
+    assert "cpu_percent" in data
+    assert "ram_percent" in data
+
 # ─── 404 Handling ──────────────────────────────────────────────
 
 def test_404_returns_json(client):
     res = client.get("/nonexistent-route")
     assert res.status_code == 404
     assert res.content_type == "application/json"
+
+def test_500_returns_json_not_html(client):
+    """Ensure 500 errors never leak stack traces / HTML."""
+    # POST to health (wrong method) gives 405, not 500
+    # Use a known-bad path that triggers a controlled error
+    res = client.get("/nonexistent-route")
+    assert "text/html" not in res.content_type

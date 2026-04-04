@@ -29,6 +29,10 @@ def create_app():
     def not_found_error(e):
         return jsonify({"error": "Resource not found"}), 404
 
+    @app.errorhandler(405)
+    def method_not_allowed(e):
+        return jsonify({"error": "Method not allowed"}), 405
+
     @app.errorhandler(500)
     def internal_error(e):
         return jsonify({"error": "Internal server error"}), 500
