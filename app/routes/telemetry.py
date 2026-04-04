@@ -28,12 +28,23 @@ def get_telemetry():
     cpu_percent = psutil.cpu_percent(interval=0)
     ram_info = psutil.virtual_memory()
 
+    # 4. Dynamic Cluster Topology — detect real Gunicorn worker processes
+    be_instances = 1  # Default for Flask dev server
+    try:
+        gunicorn_workers = [p for p in psutil.process_iter(['name', 'cmdline'])
+                           if 'gunicorn' in (p.info.get('name') or '').lower()
+                           or any('gunicorn' in arg for arg in (p.info.get('cmdline') or []))]
+        if gunicorn_workers:
+            be_instances = len(gunicorn_workers) - 1  # subtract the master process
+            be_instances = max(be_instances, 1)
+    except Exception:
+        pass
+
     return jsonify({
         "database": db_status,
         "available_tickets": available_tickets,
         "cpu_percent": cpu_percent,
         "ram_percent": ram_info.percent,
-        # Displaying genuine 1:1 topology mapping for our local cluster
-        "be_instances": 1, 
+        "be_instances": be_instances, 
         "db_instances": 1
     }), 200
