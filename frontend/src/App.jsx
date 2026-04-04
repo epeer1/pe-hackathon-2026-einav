@@ -22,6 +22,8 @@ export default function App() {
   const [activeEventId, setActiveEventId] = useState(null);
   const [isLoadRunning, setIsLoadRunning] = useState(false);
   const [loadStats, setLoadStats] = useState(null);
+  const [ticketCount, setTicketCount] = useState(100);
+  const [userCount, setUserCount] = useState(150);
 
   const lastTicketsRef = useRef(null);
   const tickRef = useRef(0);
@@ -69,13 +71,13 @@ export default function App() {
       const res = await fetch(`${API}/admin/event`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, total_tickets: 100 })
+        body: JSON.stringify({ name, total_tickets: ticketCount })
       });
       const event = await res.json();
       if (res.ok) {
         setActiveEventId(event.id);
         setLoadStats(null);
-        lastTicketsRef.current = 100;
+        lastTicketsRef.current = ticketCount;
       }
     } catch (e) {
       console.error('Failed to create event:', e);
@@ -88,9 +90,12 @@ export default function App() {
     setIsLoadRunning(true);
     setLoadStats(null);
 
-    const TOTAL = 150;
+    const TOTAL = userCount;
     let successes = 0;
     let failures = 0;
+
+    const BATCH_SIZE = Math.min(25, Math.ceil(TOTAL / 6));
+    const BATCHES = Math.ceil(TOTAL / BATCH_SIZE);
 
     // Fire requests in batches of 25 for a visible wave effect
     const batch = async (start, count) => {
@@ -110,16 +115,17 @@ export default function App() {
       await Promise.all(promises);
     };
 
-    // Stagger 6 batches of 25 for dramatic wave buildup
-    for (let b = 0; b < 6; b++) {
-      await batch(b * 25, 25);
+    for (let b = 0; b < BATCHES; b++) {
+      const start = b * BATCH_SIZE;
+      const count = Math.min(BATCH_SIZE, TOTAL - start);
+      await batch(start, count);
       // Tiny pause between batches so the chart can visualize the surge
       await new Promise(r => setTimeout(r, 200));
     }
 
-    setLoadStats({ successes, failures, oversold: successes > 100 });
+    setLoadStats({ successes, failures, oversold: successes > ticketCount });
     setIsLoadRunning(false);
-  }, [activeEventId, isLoadRunning]);
+  }, [activeEventId, isLoadRunning, userCount, ticketCount]);
 
   const isOnline = data.database === 'online';
 
@@ -131,15 +137,35 @@ export default function App() {
           <p>Live Flash Sale Traffic & Cluster Health</p>
         </div>
         <div className="header-actions">
+          <div className="input-group">
+            <label>Tickets</label>
+            <input
+              type="number"
+              className="input-num"
+              value={ticketCount}
+              onChange={e => setTicketCount(Math.max(1, parseInt(e.target.value) || 1))}
+              min="1"
+            />
+          </div>
           <button className="btn btn-secondary" onClick={launchSale}>
-            <Plus size={14} /> New Flash Sale
+            <Plus size={14} /> New Sale
           </button>
+          <div className="input-group">
+            <label>Users</label>
+            <input
+              type="number"
+              className="input-num"
+              value={userCount}
+              onChange={e => setUserCount(Math.max(1, parseInt(e.target.value) || 1))}
+              min="1"
+            />
+          </div>
           <button
             className={`btn btn-primary ${isLoadRunning ? 'btn-loading' : ''}`}
             onClick={simulateLoad}
             disabled={!activeEventId || isLoadRunning}
           >
-            <Zap size={14} /> {isLoadRunning ? 'Simulating...' : 'Simulate Load (150 users)'}
+            <Zap size={14} /> {isLoadRunning ? 'Simulating...' : 'Simulate Load'}
           </button>
         </div>
       </header>
@@ -148,7 +174,7 @@ export default function App() {
       {loadStats && (
         <div className={`results-banner ${loadStats.oversold ? 'results-fail' : 'results-pass'}`}>
           {loadStats.oversold
-            ? `💥 OVERSOLD — ${loadStats.successes} tickets sold (expected max 100)`
+            ? `💥 OVERSOLD — ${loadStats.successes} tickets sold (expected max ${ticketCount})`
             : `✅ INTEGRITY HELD — ${loadStats.successes} sold, ${loadStats.failures} blocked`
           }
         </div>

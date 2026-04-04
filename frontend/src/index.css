@@ -53,6 +53,44 @@ body {
 .header-actions {
   display: flex;
   gap: 8px;
+  align-items: flex-end;
+}
+
+/* Inline Inputs */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.input-group label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+.input-num {
+  width: 72px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: 'Fira Code', monospace;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.input-num::-webkit-outer-spin-button,
+.input-num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.input-num:focus {
+  border-color: var(--text-primary);
 }
 
 /* Buttons */
