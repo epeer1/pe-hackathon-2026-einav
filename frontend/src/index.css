@@ -337,6 +337,8 @@ body {
 .error-log-status.status-404 { color: #6b21a8; background: #f3e8ff; }
 .error-log-status.status-405 { color: #1e40af; background: #dbeafe; }
 .error-log-status.status-409 { color: #9a3412; background: #ffedd5; }
+.error-log-status.status-413 { color: #6b21a8; background: #f3e8ff; }
+.error-log-status.status-429 { color: #dc2626; background: #fee2e2; }
 .error-log-status.status-500 { color: #991b1b; background: #fee2e2; }
 .error-log-msg {
   color: var(--text-primary);

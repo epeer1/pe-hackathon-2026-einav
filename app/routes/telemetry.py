@@ -21,6 +21,7 @@ def bump_request_counter():
 
 @telemetry_bp.route("/api/telemetry", methods=["GET"])
 def get_telemetry():
+    # Rate limit exempt via blueprint — high-frequency dashboard polling
     # 1. Check DB Health safely
     db_status = "offline"
     try:

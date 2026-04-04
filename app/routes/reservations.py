@@ -52,6 +52,9 @@ def reserve():
     if event_id is None:
         return jsonify({"error": "Missing event_id"}), 400
 
+    if not isinstance(event_id, int) or isinstance(event_id, bool):
+        return jsonify({"error": "event_id must be an integer"}), 400
+
     if not user_email or not isinstance(user_email, str) or not user_email.strip():
         return jsonify({"error": "Missing or invalid user_email"}), 400
 

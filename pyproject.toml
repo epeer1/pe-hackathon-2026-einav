@@ -6,11 +6,17 @@ dependencies = [
     "faker>=33.0",
     "flask>=3.1",
     "flask-cors>=6.0.2",
+    "flask-limiter>=3.5",
     "gunicorn>=25.3.0",
     "peewee>=3.17",
     "psutil>=7.2.2",
     "psycopg2-binary>=2.9",
     "python-dotenv>=1.0",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:peewee",
 ]
 
 [dependency-groups]
