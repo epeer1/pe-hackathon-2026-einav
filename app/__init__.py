@@ -22,4 +22,18 @@ def create_app():
     def health():
         return jsonify(status="ok")
 
+    # Production Engineering: Strict JSON Error Handlers
+    @app.errorhandler(404)
+    def not_found_error(e):
+        return jsonify({"error": "Resource not found"}), 404
+
+    @app.errorhandler(500)
+    def internal_error(e):
+        return jsonify({"error": "Internal server error"}), 500
+
+    @app.errorhandler(Exception)
+    def unhandled_exception(e):
+        # Catches uncaught database failures or code bugs seamlessly
+        return jsonify({"error": "Unexpected failure", "details": str(e)}), 500
+
     return app

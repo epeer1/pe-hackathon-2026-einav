@@ -27,21 +27,31 @@ def reserve():
     if not event_id or not user_email:
         return jsonify({"error": "Missing event_id or user_email"}), 400
 
+    from app.database import db
+
     try:
-        event = Event.get_by_id(event_id)
+        # Silver Tier Upgrade: Atomic transaction + Row-level Pessimistic Locking
+        with db.atomic():
+            # The .for_update() ensures no other thread can execute a SELECT for this specific Event 
+            # until this transaction fully completes (commits or rolls back).
+            event = Event.select().where(Event.id == event_id).for_update().get()
+
+            # We leave the artificial latency in. Without locks, this causes overselling.
+            # With locks, this proves the database safely queues threads instead of crashing!
+            if event.available_tickets > 0:
+                import time
+                time.sleep(0.05)  
+                
+                event.available_tickets -= 1
+                event.save()
+                
+                reservation = Reservation.create(event=event, user_email=user_email)
+                return jsonify({
+                    "message": "Reservation successful",
+                    "reservation": model_to_dict(reservation, max_depth=1)
+                }), 201
+            else:
+                return jsonify({"error": "Sold out"}), 400
+                
     except Event.DoesNotExist:
         return jsonify({"error": "Event not found"}), 404
-
-    # Naive concurrency logic (Bronze Tier)
-    if event.available_tickets > 0:
-        event.available_tickets -= 1
-        event.save()
-        
-        reservation = Reservation.create(event=event, user_email=user_email)
-        # Avoid circular serialization issues with max_depth
-        return jsonify({
-            "message": "Reservation successful",
-            "reservation": model_to_dict(reservation, max_depth=1)
-        }), 201
-    else:
-        return jsonify({"error": "Sold out"}), 400
