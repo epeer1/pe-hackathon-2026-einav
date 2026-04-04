@@ -1,9 +1,23 @@
+import time
+import multiprocessing
 import psutil
 from flask import Blueprint, jsonify
 from app.database import db
 from app.models.flash_sale import Event
 
 telemetry_bp = Blueprint("telemetry", __name__)
+
+# Shared counter across all forked workers + master (created before fork due to preload_app)
+_req_count = multiprocessing.Value('i', 0)
+_last_rps_time = time.monotonic()
+_last_rps_count = 0
+_current_rps = 0.0
+
+
+def bump_request_counter():
+    """Called from after_request hook to count every request."""
+    with _req_count.get_lock():
+        _req_count.value += 1
 
 @telemetry_bp.route("/api/telemetry", methods=["GET"])
 def get_telemetry():
@@ -28,15 +42,15 @@ def get_telemetry():
     cpu_percent = psutil.cpu_percent(interval=0)
     ram_info = psutil.virtual_memory()
 
-    # 4. Dynamic Cluster Topology — detect real Gunicorn worker processes
-    be_instances = 1  # Default for Flask dev server
+    # 4. Dynamic Cluster Topology — count actual Gunicorn worker processes
+    be_instances = 1
     try:
-        gunicorn_workers = [p for p in psutil.process_iter(['name', 'cmdline'])
-                           if 'gunicorn' in (p.info.get('name') or '').lower()
-                           or any('gunicorn' in arg for arg in (p.info.get('cmdline') or []))]
-        if gunicorn_workers:
-            be_instances = len(gunicorn_workers) - 1  # subtract the master process
-            be_instances = max(be_instances, 1)
+        import os
+        master_pid = os.getppid()
+        master = psutil.Process(master_pid)
+        children = master.children(recursive=False)
+        # Count only live worker children (exclude master itself)
+        be_instances = max(len(children), 1)
     except Exception:
         pass
 
@@ -46,5 +60,20 @@ def get_telemetry():
         "cpu_percent": cpu_percent,
         "ram_percent": ram_info.percent,
         "be_instances": be_instances, 
-        "db_instances": 1
+        "db_instances": 1,
+        "rps": round(_compute_rps(), 1)
     }), 200
+
+
+def _compute_rps():
+    global _last_rps_time, _last_rps_count, _current_rps
+    now = time.monotonic()
+    elapsed = now - _last_rps_time
+    if elapsed >= 0.3:
+        with _req_count.get_lock():
+            current = _req_count.value
+        delta = current - _last_rps_count
+        _last_rps_count = current
+        _current_rps = delta / elapsed
+        _last_rps_time = now
+    return _current_rps

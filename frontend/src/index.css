@@ -298,14 +298,55 @@ body {
   text-align: right;
 }
 
-/* Recharts overrides */
-.recharts-cartesian-axis-tick text {
-  fill: var(--text-secondary);
+/* Error Log */
+.error-log-card {
+  margin-top: 16px;
+  max-height: 280px;
+  overflow: hidden;
+}
+.error-log-list {
+  overflow-y: auto;
+  max-height: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.error-log-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-family: 'Fira Code', monospace;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fafafa;
+  border: 1px solid var(--border);
+}
+.error-log-time {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.error-log-status {
+  font-weight: 600;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
   font-size: 11px;
 }
-.recharts-cartesian-grid line {
-  stroke: #f0f0f0;
+.error-log-status.status-400 { color: #92400e; background: #fef3c7; }
+.error-log-status.status-404 { color: #6b21a8; background: #f3e8ff; }
+.error-log-status.status-405 { color: #1e40af; background: #dbeafe; }
+.error-log-status.status-409 { color: #9a3412; background: #ffedd5; }
+.error-log-status.status-500 { color: #991b1b; background: #fee2e2; }
+.error-log-msg {
+  color: var(--text-primary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.recharts-tooltip-cursor {
-  stroke: #d4d4d4;
+.error-log-path {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  font-size: 11px;
 }

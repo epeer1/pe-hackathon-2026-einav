@@ -71,9 +71,6 @@ def reserve():
                 return jsonify({"error": "Event is no longer active"}), 400
 
             if event.available_tickets > 0:
-                import time
-                time.sleep(0.05)
-
                 event.available_tickets -= 1
                 event.save()
 

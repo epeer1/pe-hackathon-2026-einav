@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Activity, Server, Database, Ticket, Cpu, MemoryStick, Zap, Plus } from 'lucide-react';
+import { Activity, Server, Database, Ticket, Cpu, MemoryStick, Zap, Plus, AlertTriangle } from 'lucide-react';
 
 const API = 'http://127.0.0.1:5000';
-const HISTORY_LENGTH = 60;
+const HISTORY_LENGTH = 200;
 
 export default function App() {
   const [data, setData] = useState({
@@ -15,18 +14,105 @@ export default function App() {
     db_instances: 1
   });
 
-  const [history, setHistory] = useState(
-    Array.from({ length: HISTORY_LENGTH }, (_, i) => ({ time: i, traffic: 0 }))
-  );
-
   const [activeEventId, setActiveEventId] = useState(null);
   const [isLoadRunning, setIsLoadRunning] = useState(false);
   const [loadStats, setLoadStats] = useState(null);
   const [ticketCount, setTicketCount] = useState(100);
   const [userCount, setUserCount] = useState(150);
 
-  const lastTicketsRef = useRef(null);
-  const tickRef = useRef(0);
+  const [errorLogs, setErrorLogs] = useState([]);
+
+  const smoothRpsRef = useRef(0);
+  const historyRef = useRef(new Array(HISTORY_LENGTH).fill(0));
+  const canvasRef = useRef(null);
+  const animFrameRef = useRef(null);
+
+  // ── Canvas Chart Renderer ──────────────────────────────────
+  useEffect(() => {
+    const draw = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) { animFrameRef.current = requestAnimationFrame(draw); return; }
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const pts = historyRef.current;
+      const max = Math.max(10, ...pts) * 1.2;
+      const step = w / (pts.length - 1);
+      const padTop = 24;
+      const padBot = 12;
+      const plotH = h - padTop - padBot;
+
+      const getY = (val) => padTop + plotH - (val / max) * plotH;
+
+      // Grid lines
+      ctx.strokeStyle = '#eee';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      for (let i = 1; i < 4; i++) {
+        const y = padTop + (plotH / 4) * i;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // Area fill
+      ctx.beginPath();
+      ctx.moveTo(0, padTop + plotH);
+      for (let i = 0; i < pts.length; i++) {
+        const x = i * step;
+        const y = getY(pts[i]);
+        if (i === 0) ctx.lineTo(x, y);
+        else {
+          const prevX = (i - 1) * step;
+          const prevY = getY(pts[i - 1]);
+          const cpx = (prevX + x) / 2;
+          ctx.bezierCurveTo(cpx, prevY, cpx, y, x, y);
+        }
+      }
+      ctx.lineTo(w, padTop + plotH);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, padTop, 0, padTop + plotH);
+      grad.addColorStop(0, 'rgba(23,23,23,0.08)');
+      grad.addColorStop(1, 'rgba(23,23,23,0)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Line
+      ctx.beginPath();
+      for (let i = 0; i < pts.length; i++) {
+        const x = i * step;
+        const y = getY(pts[i]);
+        if (i === 0) ctx.moveTo(x, y);
+        else {
+          const prevX = (i - 1) * step;
+          const prevY = getY(pts[i - 1]);
+          const cpx = (prevX + x) / 2;
+          ctx.bezierCurveTo(cpx, prevY, cpx, y, x, y);
+        }
+      }
+      ctx.strokeStyle = '#171717';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Current RPS label
+      const currentRps = pts[pts.length - 1];
+      ctx.fillStyle = '#171717';
+      ctx.font = '600 13px "Fira Code", monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${currentRps.toFixed(1)} req/s`, w - 8, 18);
+
+      animFrameRef.current = requestAnimationFrame(draw);
+    };
+    animFrameRef.current = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(animFrameRef.current);
+  }, []);
 
   // ── Telemetry Polling ──────────────────────────────────────
   useEffect(() => {
@@ -35,33 +121,38 @@ export default function App() {
         const response = await fetch(`${API}/api/telemetry`);
         const newData = await response.json();
 
-        let currentTraffic = 0;
-        if (lastTicketsRef.current !== null && newData.available_tickets < lastTicketsRef.current) {
-          currentTraffic = (lastTicketsRef.current - newData.available_tickets) * 12;
-        } else {
-          currentTraffic = 2 + Math.sin(tickRef.current * 0.3) * 1.5 + Math.random() * 1.5;
-        }
-        lastTicketsRef.current = newData.available_tickets;
-        tickRef.current += 1;
+        const raw = newData.rps || 0;
+        const alpha = 0.12;
+        smoothRpsRef.current = smoothRpsRef.current * (1 - alpha) + raw * alpha;
 
+        historyRef.current = [...historyRef.current.slice(1), Math.round(smoothRpsRef.current * 10) / 10];
         setData(newData);
-        setHistory(prev => [
-          ...prev.slice(1),
-          { time: prev[prev.length - 1].time + 1, traffic: Math.round(currentTraffic * 10) / 10 }
-        ]);
       } catch {
+        smoothRpsRef.current = 0;
+        historyRef.current = [...historyRef.current.slice(1), 0];
         setData(prev => ({ ...prev, database: 'offline' }));
-        tickRef.current += 1;
-        setHistory(prev => [
-          ...prev.slice(1),
-          { time: prev[prev.length - 1].time + 1, traffic: 0 }
-        ]);
       }
     };
 
-    const id = setInterval(fetchTelemetry, 800);
+    const id = setInterval(fetchTelemetry, 300);
     fetchTelemetry();
     return () => clearInterval(id);
+  }, []);
+
+  // ── Error Log Polling ──────────────────────────────────────
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const res = await fetch(`${API}/api/logs`);
+        if (res.ok) {
+          const logs = await res.json();
+          setErrorLogs(logs);
+        }
+      } catch { /* ignore */ }
+    };
+    const logId = setInterval(fetchLogs, 2000);
+    fetchLogs();
+    return () => clearInterval(logId);
   }, []);
 
   // ── Launch Flash Sale ──────────────────────────────────────
@@ -77,12 +168,11 @@ export default function App() {
       if (res.ok) {
         setActiveEventId(event.id);
         setLoadStats(null);
-        lastTicketsRef.current = ticketCount;
       }
     } catch (e) {
       console.error('Failed to create event:', e);
     }
-  }, []);
+  }, [ticketCount]);
 
   // ── Simulate Load ──────────────────────────────────────────
   const simulateLoad = useCallback(async () => {
@@ -94,10 +184,8 @@ export default function App() {
     let successes = 0;
     let failures = 0;
 
-    const BATCH_SIZE = Math.min(25, Math.ceil(TOTAL / 6));
-    const BATCHES = Math.ceil(TOTAL / BATCH_SIZE);
+    const BATCH_SIZE = Math.min(500, Math.ceil(TOTAL / 4));
 
-    // Fire requests in batches of 25 for a visible wave effect
     const batch = async (start, count) => {
       const promises = [];
       for (let i = start; i < start + count; i++) {
@@ -115,12 +203,11 @@ export default function App() {
       await Promise.all(promises);
     };
 
+    const BATCHES = Math.ceil(TOTAL / BATCH_SIZE);
     for (let b = 0; b < BATCHES; b++) {
       const start = b * BATCH_SIZE;
       const count = Math.min(BATCH_SIZE, TOTAL - start);
       await batch(start, count);
-      // Tiny pause between batches so the chart can visualize the surge
-      await new Promise(r => setTimeout(r, 200));
     }
 
     setLoadStats({ successes, failures, oversold: successes > ticketCount });
@@ -186,39 +273,7 @@ export default function App() {
           <div className="card-title">
             <Activity size={14} /> Live API Traffic (Requests/sec)
           </div>
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={history} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#171717" stopOpacity={0.08} />
-                  <stop offset="100%" stopColor="#171717" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="#eee" />
-              <XAxis dataKey="time" hide />
-              <YAxis hide domain={[0, 'auto']} />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: '6px',
-                  border: '1px solid #e5e5e5',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                  fontSize: '13px'
-                }}
-                labelStyle={{ display: 'none' }}
-                itemStyle={{ color: '#171717', fontWeight: 600, fontFamily: 'Fira Code, monospace' }}
-              />
-              <Area
-                type="monotone"
-                dataKey="traffic"
-                stroke="#171717"
-                strokeWidth={1.5}
-                fillOpacity={1}
-                fill="url(#colorTraffic)"
-                animationDuration={600}
-                animationEasing="ease-in-out"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
         </div>
 
         {/* Database Health */}
@@ -281,6 +336,25 @@ export default function App() {
           <div className="vitals-label">{data.ram_percent.toFixed(1)}%</div>
         </div>
       </div>
+
+      {/* Error Log Feed */}
+      {errorLogs.length > 0 && (
+        <div className="card error-log-card">
+          <div className="card-title">
+            <AlertTriangle size={14} /> Error Log
+          </div>
+          <div className="error-log-list">
+            {errorLogs.map((log, i) => (
+              <div key={i} className="error-log-entry">
+                <span className="error-log-time">{log.time}</span>
+                <span className={`error-log-status status-${log.status}`}>{log.status}</span>
+                <span className="error-log-msg">{log.error}</span>
+                <span className="error-log-path">{log.method} {log.path}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
