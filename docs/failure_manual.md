@@ -26,12 +26,11 @@ HTTP 400
 ```
 
 ### 500: Database Disconnection or Syntax Failure
-If PostgreSQL drops the connection, an unexpected locking error occurs, or buggy Python code is shipped, the `@app.errorhandler(Exception)` catches it at the highest factory runtime level. Instead of disconnecting or dropping into HTML debugger mode, the API returns:
+If PostgreSQL drops the connection, an unexpected locking error occurs, or buggy Python code is shipped, the `@app.errorhandler(Exception)` catches it at the highest factory runtime level. The detail is logged server-side via `app.logger.exception()` but never exposed to the client:
 ```json
 HTTP 500
 {
-  "error": "Unexpected failure",
-  "details": "<str(exc)>"
+  "error": "Internal server error"
 }
 ```
 
