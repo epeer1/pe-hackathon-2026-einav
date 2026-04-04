@@ -64,3 +64,11 @@ peewee.OperationalError: connection to server at "localhost" (::1), port 5432 fa
 connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
 	Is the server running on that host and accepting TCP/IP connections?
 
+ * Detected change in '/Users/einav/Repos/pe-hackathon-2026-einav/run.py', reloading
+ * Restarting with stat
+Fatal Python error: init_sys_streams: can't initialize sys standard streams
+Python runtime state: core initialized
+OSError: [Errno 9] Bad file descriptor
+
+Current thread 0x00000001f76798c0 (most recent call first):
+  <no Python frame>
