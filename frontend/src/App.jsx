@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Activity, Server, Database, Ticket, Cpu, MemoryStick, Zap, Plus } from 'lucide-react';
 
-const API = 'http://127.0.0.1:5001';
+const API = 'http://127.0.0.1:5000';
 const HISTORY_LENGTH = 60;
 
 export default function App() {
