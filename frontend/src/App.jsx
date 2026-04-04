@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Activity, Server, Database, Ticket } from 'lucide-react';
+import { Activity, Server, Database, Ticket, Cpu, MemoryStick } from 'lucide-react';
+
+const HISTORY_LENGTH = 60;
 
 export default function App() {
   const [data, setData] = useState({
@@ -8,49 +10,59 @@ export default function App() {
     available_tickets: 100,
     cpu_percent: 0,
     ram_percent: 0,
-    be_instances: 4,
+    be_instances: 1,
     db_instances: 1
   });
   
-  // Historical data for the wave chart
-  const [history, setHistory] = useState(Array.from({ length: 20 }, (_, i) => ({ time: i, traffic: 0 })));
+  const [history, setHistory] = useState(
+    Array.from({ length: HISTORY_LENGTH }, (_, i) => ({ time: i, traffic: 0 }))
+  );
+
+  const lastTicketsRef = useRef(null);
+  const tickRef = useRef(0);
 
   useEffect(() => {
-    let lastTickets = null;
-    
     const fetchTelemetry = async () => {
       try {
         const response = await fetch('http://127.0.0.1:5001/api/telemetry');
         const newData = await response.json();
         
-        // Calculate simulated "API Traffic" based on tickets dropping
         let currentTraffic = 0;
-        if (lastTickets !== null && newData.available_tickets < lastTickets) {
-           // We map ticket consumption events to high RPS spikes
-           currentTraffic = (lastTickets - newData.available_tickets) * 15; 
+        if (lastTicketsRef.current !== null && newData.available_tickets < lastTicketsRef.current) {
+           currentTraffic = (lastTicketsRef.current - newData.available_tickets) * 12; 
         } else {
-           // Base heartbeat traffic
-           currentTraffic = Math.floor(Math.random() * 5);
+           // Gentle organic heartbeat with slight sine wave
+           currentTraffic = 2 + Math.sin(tickRef.current * 0.3) * 1.5 + Math.random() * 1.5;
         }
-        lastTickets = newData.available_tickets;
+        lastTicketsRef.current = newData.available_tickets;
+        tickRef.current += 1;
 
         setData(newData);
         
         setHistory(prev => {
-          const newHistory = [...prev.slice(1), { time: prev[prev.length - 1].time + 1, traffic: currentTraffic }];
-          return newHistory;
+          const next = [...prev.slice(1), { 
+            time: prev[prev.length - 1].time + 1, 
+            traffic: Math.round(currentTraffic * 10) / 10 
+          }];
+          return next;
         });
 
       } catch (err) {
-        console.error("Failed to fetch telemetry:", err);
-        // If the backend completely drops, reflect frontend state
         setData(prev => ({ ...prev, database: 'offline' }));
+        tickRef.current += 1;
+        setHistory(prev => {
+          const next = [...prev.slice(1), { time: prev[prev.length - 1].time + 1, traffic: 0 }];
+          return next;
+        });
       }
     };
 
-    const intervalId = setInterval(fetchTelemetry, 500);
+    const intervalId = setInterval(fetchTelemetry, 800);
+    fetchTelemetry();
     return () => clearInterval(intervalId);
   }, []);
+
+  const isOnline = data.database === 'online';
 
   return (
     <div className="dashboard-container">
@@ -60,54 +72,61 @@ export default function App() {
       </header>
 
       <div className="grid">
-        {/* The Hero Wave Chart */}
+        {/* Hero Wave Chart */}
         <div className="card hero-chart">
           <div className="card-title">
-            <Activity size={16} /> Live API Traffic (Requests/sec)
+            <Activity size={14} /> Live API Traffic (Requests/sec)
           </div>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={history} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+            <AreaChart data={history} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#171717" stopOpacity={0.1}/>
-                  <stop offset="95%" stopColor="#171717" stopOpacity={0}/>
+                  <stop offset="0%" stopColor="#171717" stopOpacity={0.08}/>
+                  <stop offset="100%" stopColor="#171717" stopOpacity={0}/>
                 </linearGradient>
               </defs>
-              <CartesianGrid vertical={false} />
+              <CartesianGrid vertical={false} strokeDasharray="4 4" stroke="#eee" />
               <XAxis dataKey="time" hide />
-              <YAxis hide domain={[0, 150]} />
+              <YAxis hide domain={[0, 'auto']} />
               <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: '1px solid #e5e5e5', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}
-                itemStyle={{ color: '#171717', fontWeight: 600, fontFamily: 'Fira Code' }}
+                contentStyle={{ 
+                  borderRadius: '6px', 
+                  border: '1px solid #e5e5e5', 
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+                  fontSize: '13px'
+                }}
+                labelStyle={{ display: 'none' }}
+                itemStyle={{ color: '#171717', fontWeight: 600, fontFamily: 'Fira Code, monospace' }}
               />
               <Area 
                 type="monotone" 
                 dataKey="traffic" 
                 stroke="#171717" 
-                strokeWidth={2}
+                strokeWidth={1.5}
                 fillOpacity={1} 
                 fill="url(#colorTraffic)" 
-                isAnimationActive={false}
+                animationDuration={600}
+                animationEasing="ease-in-out"
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Database Health Card */}
+        {/* Database Health */}
         <div className="card card-health">
           <div className="card-title">
-            <Database size={16} /> PostgreSQL Connectivity
+            <Database size={14} /> PostgreSQL
           </div>
-          <div className="status-indicator">
-            <div className={`dot ${data.database === 'online' ? 'green' : 'red'}`}></div>
-            {data.database === 'online' ? 'NODE ONLINE' : 'NODE OFFLINE'}
+          <div className={`status-indicator ${isOnline ? '' : 'status-offline'}`}>
+            <div className={`dot ${isOnline ? 'green' : 'red'}`}></div>
+            <span>{isOnline ? 'NODE ONLINE' : 'NODE OFFLINE'}</span>
           </div>
         </div>
 
-        {/* Cluster Topology Card */}
+        {/* Cluster Topology */}
         <div className="card card-cluster">
           <div className="card-title">
-            <Server size={16} /> Cluster Topology (Instances)
+            <Server size={14} /> Cluster Topology
           </div>
           <div className="cluster-stats">
             <div className="cluster-stat">
@@ -121,14 +140,36 @@ export default function App() {
           </div>
         </div>
 
-        {/* Flash Sale Pulse Card */}
+        {/* Flash Sale Pulse */}
         <div className="card card-pulse">
           <div className="card-title">
-            <Ticket size={16} /> Flash Sale (Available)
+            <Ticket size={14} /> Flash Sale — Available
           </div>
           <div className="card-value">
             {data.available_tickets}
           </div>
+        </div>
+
+        {/* CPU */}
+        <div className="card card-vitals">
+          <div className="card-title">
+            <Cpu size={14} /> CPU Utilization
+          </div>
+          <div className="vitals-bar-container">
+            <div className="vitals-bar" style={{ width: `${Math.min(data.cpu_percent, 100)}%` }}></div>
+          </div>
+          <div className="vitals-label">{data.cpu_percent.toFixed(1)}%</div>
+        </div>
+
+        {/* RAM */}
+        <div className="card card-vitals">
+          <div className="card-title">
+            <MemoryStick size={14} /> Memory Utilization
+          </div>
+          <div className="vitals-bar-container">
+            <div className="vitals-bar" style={{ width: `${Math.min(data.ram_percent, 100)}%` }}></div>
+          </div>
+          <div className="vitals-label">{data.ram_percent.toFixed(1)}%</div>
         </div>
       </div>
     </div>
