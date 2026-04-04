@@ -35,7 +35,7 @@ jobs:
     - name: Run tests
       run: |
         uv sync
-        uv run python -m pytest tests/
+        uv run python -m pytest tests/ --cov=app --cov-report=term-missing --cov-fail-under=70
       env:
         DATABASE_PORT: 5432
         DATABASE_HOST: localhost
