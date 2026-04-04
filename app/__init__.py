@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from flask import Flask, jsonify
+from flask_cors import CORS
 
 from app.database import init_db
 from app.routes import register_routes
@@ -9,6 +10,7 @@ def create_app():
     load_dotenv()
 
     app = Flask(__name__)
+    CORS(app)
 
     init_db(app)
 

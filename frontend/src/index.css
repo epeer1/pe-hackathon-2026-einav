@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --bg-primary: #fafafa;
+  --bg-card: #ffffff;
+  --text-primary: #171717;
+  --text-secondary: #737373;
+  --border: #e5e5e5;
+  --accent: #000000;
+  --green: #10b981;
+  --red: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+.dashboard-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.header p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 24px;
+}
+
+.card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Card layout spans */
+.hero-chart { grid-column: span 12; height: 350px; }
+.card-pulse { grid-column: span 4; }
+.card-health { grid-column: span 4; }
+.card-cluster { grid-column: span 4; }
+
+.card-title {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-value {
+  font-family: 'Fira Code', monospace;
+  font-size: 48px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  margin-top: auto;
+}
+
+.card-value.small {
+  font-size: 32px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: auto;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.dot.green { background-color: var(--green); box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+.dot.red { background-color: var(--red); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+
+.cluster-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-top: auto;
+}
+.cluster-stat {
+  text-align: center;
+}
+.cluster-stat label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.cluster-stat span {
+  font-family: 'Fira Code', monospace;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+/* Recharts styling tweaks */
+.recharts-cartesian-axis-tick text {
+  fill: var(--text-secondary);
+  font-size: 12px;
+}
+.recharts-cartesian-grid line {
+  stroke: var(--border);
+  stroke-dasharray: 4 4;
+}
