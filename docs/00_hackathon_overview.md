@@ -1,7 +1,7 @@
 # MLH Production Engineering Hackathon 2026 Overview
 
 ## Event Summary
-An MLH Production Engineering Hackathon aimed at taking a minimal starter template (a basic URL shortener) and transforming it into a robust, reliable service that can be trusted under pressure.
+An MLH Production Engineering Hackathon aimed at taking a minimal starter template (Flask + Peewee) and building a highly concurrent "Flash Sale" Ticket Reservation System that can be trusted to not oversell inventory under heavy pressure.
 
 ## Official Links
 - **Event Site:** [mlh-pe-hackathon.com](https://mlh-pe-hackathon.com/)
@@ -30,8 +30,8 @@ An MLH Production Engineering Hackathon aimed at taking a minimal starter templa
 2. Link to a newly recorded demo video (≤ 2 minutes).
 3. Clear documentation in the README matching Devpost requirements.
 
-## Quest Concept Summary
-The hackathon instructs teams to start from the official URL shortener template and choose a specific "Quest" roadmap. The public event site specifically emphasizes tracking progression via clear "Bronze", "Silver", and "Gold" milestones that build on each sequentially. We must establish "Bronze" functionality first before moving forward.
+## Project Concept Summary
+Our team is starting from the official Flask/Peewee template and building a High-Concurrency Flash Sale / Ticket Reservation API. To structure our hackathon weekend perfectly, we have organized our development tracking into clear "Bronze", "Silver", and "Gold" milestones that build on each sequentially. We must establish the naive "Bronze" functionality first before moving on to complex concurrency locks.
 
 ## Reliability Quest Notes
 If choosing the Reliability roadmap, the core goal is ensuring the service doesn't fall over. The emphasis is on:

@@ -5,4 +5,5 @@ def register_routes(app):
         from app.routes.products import products_bp
         app.register_blueprint(products_bp)
     """
-    pass
+    from app.routes.reservations import reservations_bp
+    app.register_blueprint(reservations_bp)

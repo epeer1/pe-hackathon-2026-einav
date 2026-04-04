@@ -13,6 +13,8 @@ def create_app():
     init_db(app)
 
     from app import models  # noqa: F401 - registers models with Peewee
+    from app.database import db
+    db.create_tables([models.Event, models.Reservation], safe=True)
 
     register_routes(app)
 
