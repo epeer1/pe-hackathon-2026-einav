@@ -102,6 +102,7 @@ Full failure mode documentation: [docs/failure_manual.md](docs/failure_manual.md
 ### Dynamic Autoscaling
 
 Gunicorn workers scale from 1 to 6 based on real-time requests per second:
+- **Worker class:** `gthread` — each worker handles 4 concurrent requests via threads, avoiding blocking under load
 - Scale **up** when RPS/worker > 20 (via `SIGTTIN`)
 - Scale **down** when RPS/worker < 5 (via `SIGTTOU`)
 - 3-second check interval, 6-second cooldown between scaling events
@@ -199,7 +200,7 @@ If tests fail or coverage drops below 70%, the pipeline blocks the commit.
 │   └── failure_manual.md        # Failure mode documentation
 ├── docker-compose.yml           # API + DB + Frontend (3 containers)
 ├── Dockerfile                   # Python API image
-├── gunicorn.conf.py             # Autoscaler (1-6 workers)
+├── gunicorn.conf.py             # gthread workers, autoscaler (1-6)
 ├── load_test.py                 # Concurrency stress test
 └── .github/workflows/ci.yml    # CI pipeline with coverage gate
 ```

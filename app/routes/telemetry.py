@@ -1,4 +1,5 @@
 import time
+import threading
 import multiprocessing
 import psutil
 from flask import Blueprint, jsonify
@@ -9,6 +10,7 @@ telemetry_bp = Blueprint("telemetry", __name__)
 
 # Shared counter across all forked workers + master (created before fork due to preload_app)
 _req_count = multiprocessing.Value('i', 0)
+_rps_lock = threading.Lock()
 _last_rps_time = time.monotonic()
 _last_rps_count = 0
 _current_rps = 0.0
@@ -68,13 +70,14 @@ def get_telemetry():
 
 def _compute_rps():
     global _last_rps_time, _last_rps_count, _current_rps
-    now = time.monotonic()
-    elapsed = now - _last_rps_time
-    if elapsed >= 0.3:
-        with _req_count.get_lock():
-            current = _req_count.value
-        delta = current - _last_rps_count
-        _last_rps_count = current
-        _current_rps = delta / elapsed
-        _last_rps_time = now
-    return _current_rps
+    with _rps_lock:
+        now = time.monotonic()
+        elapsed = now - _last_rps_time
+        if elapsed >= 0.3:
+            with _req_count.get_lock():
+                current = _req_count.value
+            delta = current - _last_rps_count
+            _last_rps_count = current
+            _current_rps = delta / elapsed
+            _last_rps_time = now
+        return _current_rps

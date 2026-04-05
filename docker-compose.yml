@@ -27,7 +27,7 @@ services:
 
   db:
     image: postgres:15
-    restart: unless-stopped
+    restart: always
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
