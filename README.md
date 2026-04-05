@@ -5,7 +5,7 @@
 > A high-concurrency ticket reservation system that refuses to die under load. Handles thousands of simultaneous users without overselling a single ticket.
 
 **GitHub:** [epeer1/pe-hackathon-2026-einav](https://github.com/epeer1/pe-hackathon-2026-einav)
-**Demo Video:** _[link]_
+**Demo Video:** [https://youtu.be/jaIu5H8usto](https://youtu.be/jaIu5H8usto)
 
 ---
 

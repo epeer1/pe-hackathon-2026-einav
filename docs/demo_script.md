@@ -24,13 +24,13 @@
 
 **Action:**
 - Type `docker compose up --build` (fast-forward the build)
-- Run `docker ps` — show all 3 containers healthy
+- Run `docker compose ps` — show all 3 containers healthy
 
 ---
 
 ## Scene 3 — Dashboard (0:15–0:30)
 
-**Screen:** Browser only (full screen) — `localhost:5173`
+**Screen:** Browser only (full screen) — `http://localhost:5173`
 
 **Text overlay:** `Real-time SRE Dashboard`
 
@@ -50,7 +50,7 @@
 **Text overlay:** `200 users. 100 tickets. Zero oversold.`
 
 **Action:**
-1. Terminal (right): run `python3 load_test.py -t 100 -u 200 -w 100`
+1. Terminal (right): run `uv run python load_test.py -t 100 -u 200 -w 100`
 2. Dashboard (left): watch the RPS chart spike and tickets drain to 0
 3. Terminal shows: **"✅ PASS: API maintained integrity under load. 100 sold, 100 blocked"**
 
@@ -66,12 +66,12 @@
 **Text overlay:** `Chaos Mode: Kill the API container`
 
 **Action:**
-- Terminal (right): type `docker kill pe-hackathon-2026-einav-api-1`
-- Dashboard (left): status indicators go red/offline
-- Wait 2-3 seconds...
-- Dashboard (left): status recovers to green
+1. Terminal (right): type `docker kill pe-hackathon-2026-einav-api-1`
+2. Dashboard (left): status indicators go red/offline, RPS drops to 0
+3. Terminal (right): type `docker compose up -d` (one-command recovery)
+4. Dashboard (left): status recovers to green within seconds
 
-**Text overlay (after recovery):** `restart: always — auto-resurrected in seconds`
+**Text overlay (after recovery):** `Container killed → one command → fully recovered`
 
 ---
 
@@ -83,16 +83,21 @@
 
 **Action (run these 3 commands, quick cuts between them):**
 
-```
-curl -s -X POST localhost:5050/reserve -H "Content-Type: application/json" -d '{"event_id": "abc"}' | python3 -m json.tool
+```bash
+# Invalid event_id type → 400
+curl -s -X POST http://localhost:5050/reserve \
+  -H "Content-Type: application/json" \
+  -d '{"event_id": "abc", "user_email": "x@test.com"}' | python3 -m json.tool
 ```
 
-```
-curl -s localhost:5050/doesnt-exist | python3 -m json.tool
+```bash
+# Unknown route → 404
+curl -s http://localhost:5050/doesnt-exist | python3 -m json.tool
 ```
 
-```
-curl -s -X GET localhost:5050/reserve | python3 -m json.tool
+```bash
+# Wrong HTTP method → 405
+curl -s -X GET http://localhost:5050/reserve | python3 -m json.tool
 ```
 
 **Text overlay:** `400 · 404 · 405 · 409 · 413 · 429 · 500 — all JSON`
@@ -106,7 +111,7 @@ curl -s -X GET localhost:5050/reserve | python3 -m json.tool
 **Text overlay:** `38 tests · 92% coverage · CI gated`
 
 **Action:**
-- Terminal: run `pytest tests/ -v --cov=app` (fast-forward)
+- Terminal: run `uv run python -m pytest tests/ -v --cov=app` (fast-forward)
 - Pause on the final line: **38 passed, 92%**
 - Quick cut to browser: GitHub Actions page — green checkmark on latest commit
 
@@ -130,12 +135,14 @@ curl -s -X GET localhost:5050/reserve | python3 -m json.tool
 
 ## Recording Checklist
 
-- [ ] Docker running, all 3 containers up before recording
-- [ ] Dashboard open in browser at `localhost:5173`
+- [ ] Colima running (`colima status`)
+- [ ] Docker containers up: `docker compose up -d` — all 3 healthy
+- [ ] Dashboard open in browser at `http://localhost:5173`
+- [ ] API responding: `curl http://localhost:5050/health`
 - [ ] Terminal font size 16pt+
 - [ ] Clean desktop, Do Not Disturb mode on
-- [ ] Rectangle app ready for split screen (Scene 5)
-- [ ] Fast-forward `docker compose up` and `pytest` in editor
+- [ ] Rectangle app ready for split screen (Scene 4 & 5)
+- [ ] Fast-forward `docker compose up --build` and `pytest` in editor
 - [ ] Cut between scenes — no dead air
 - [ ] Add text overlays in iMovie after recording
 - [ ] Total time under 2:00
